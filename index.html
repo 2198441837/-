@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>旅游景点推荐 - 发现中国之美</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header>
+            <div class="header-container">
+                <a href="#" class="logo">🌏 旅游景点推荐</a>
+                
+                <nav>
+                    <a href="#" @click="showPage('home')">首页</a>
+                    <a href="#" @click="showPage('favorites')">我的收藏</a>
+                    <a href="#" @click="showPage('about')">关于我们</a>
+                </nav>
+                
+                <div class="user-menu">
+                    <div class="search-bar">
+                        <input 
+                            type="text" 
+                            v-model="searchQuery" 
+                            placeholder="搜索目的地..."
+                            @keyup.enter="searchDestinations"
+                        >
+                        <button @click="searchDestinations">🔍</button>
+                    </div>
+                    
+                    <button 
+                        v-if="!isLoggedIn" 
+                        class="btn btn-primary" 
+                        @click="showLoginModal = true"
+                    >
+                        登录
+                    </button>
+                    
+                    <div v-else class="user-info">
+                        <span>欢迎, {{ currentUser.username }}</span>
+                        <button class="btn btn-secondary" @click="logout">退出</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main>
+            <!-- Home Page -->
+            <div v-if="currentPage === 'home'">
+                <!-- Hero Section -->
+                <div class="hero">
+                    <div class="hero-content">
+                        <h1>发现中国之美</h1>
+                        <p>探索神州大地的壮丽山河，体验中华文化的博大精深</p>
+                        <div class="hero-buttons">
+                            <button class="btn btn-primary" @click="scrollToDestinations">
+                                开始探索
+                            </button>
+                            <button class="btn btn-secondary" @click="showRandomDestination">
+                                随机推荐
+                            </button>
+                        </div>
+                    </div>
+                    <div class="hero-image">
+                        <img src="image/黄山.jpg" alt="中国风景" class="hero-img">
+                    </div>
+                </div>
+
+                <!-- Category Filter -->
+                <div class="category-filter">
+                    <h3>景点分类</h3>
+                    <div class="category-buttons">
+                        <button 
+                            class="category-btn"
+                            :class="{ active: selectedCategory === 'all' }"
+                            @click="filterCategory('all')"
+                        >
+                            全部景点
+                        </button>
+                        <button 
+                            class="category-btn"
+                            :class="{ active: selectedCategory === '历史文化' }"
+                            @click="filterCategory('历史文化')"
+                        >
+                            历史文化
+                        </button>
+                        <button 
+                            class="category-btn"
+                            :class="{ active: selectedCategory === '自然风光' }"
+                            @click="filterCategory('自然风光')"
+                        >
+                            自然风光
+                        </button>
+                        <button 
+                            class="category-btn"
+                            :class="{ active: selectedCategory === '历史遗迹' }"
+                            @click="filterCategory('历史遗迹')"
+                        >
+                            历史遗迹
+                        </button>
+                        <button 
+                            class="category-btn"
+                            :class="{ active: selectedCategory === '自然文化' }"
+                            @click="filterCategory('自然文化')"
+                        >
+                            自然文化
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Destinations Grid -->
+                <div id="destinations" class="destinations-grid">
+                    <div 
+                        v-for="destination in filteredDestinations" 
+                        :key="destination.id"
+                        class="destination-card"
+                        @click="showDestinationDetail(destination)"
+                    >
+                        <img :src="destination.image" :alt="destination.name" class="destination-image">
+                        <div class="destination-content">
+                            <h3 class="destination-title">{{ destination.name }}</h3>
+                            <p class="destination-description">{{ destination.shortDescription }}</p>
+                            <div class="destination-actions">
+                                <span class="tag">{{ destination.location }}</span>
+                                <button 
+                                    class="btn btn-secondary" 
+                                    @click.stop="toggleFavorite(destination)"
+                                >
+                                    {{ isFavorite(destination.id) ? '❤️' : '🤍' }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Favorites Page -->
+            <div v-if="currentPage === 'favorites'" class="favorites-section">
+                <h2>我的收藏景点</h2>
+                <div v-if="favorites.length === 0" class="empty-state">
+                    <p>您还没有收藏任何景点，快去探索吧！</p>
+                </div>
+                <div v-else class="favorites-grid">
+                    <div 
+                        v-for="favorite in favorites" 
+                        :key="favorite.id"
+                        class="favorite-item"
+                        @click="showDestinationDetail(favorite)"
+                    >
+                        <img :src="favorite.image" :alt="favorite.name">
+                        <h4>{{ favorite.name }}</h4>
+                        <p>{{ favorite.location }}</p>
+                        <button 
+                            class="btn btn-secondary" 
+                            @click.stop="removeFavorite(favorite.id)"
+                        >
+                            取消收藏
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- About Page -->
+            <div v-if="currentPage === 'about'" class="about-page">
+                <div class="about-header">
+                    <h2>关于我们</h2>
+                    <div class="about-intro">
+                        <p>旅游景点推荐平台致力于为您提供最全面、最准确的中国旅游景点信息。我们精心挑选了国内最具代表性的旅游胜地，帮助您发现中国各地的自然风光和人文景观。</p>
+                        <img src="image/长城.jpg" alt="中国风景" class="about-image">
+                    </div>
+                </div>
+
+                <div class="about-features">
+                    <h3>我们的特色</h3>
+                    <div class="features-grid">
+                        <div class="feature-card">
+                            <div class="feature-icon">🏞️</div>
+                            <h4>精选景点</h4>
+                            <p>涵盖自然风光和人文历史的优质景点</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">📖</div>
+                            <h4>详细攻略</h4>
+                            <p>提供详尽的景点介绍和旅游指南</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">⭐</div>
+                            <h4>个性推荐</h4>
+                            <p>根据您的喜好定制个性化推荐</p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">🗺️</div>
+                            <h4>路线规划</h4>
+                            <p>精心设计的旅游路线和行程安排</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="about-contact">
+                    <h3>联系我们</h3>
+                    <div class="contact-info">
+                        <div class="contact-item">
+                            <div class="contact-icon">📧</div>
+                            <div class="contact-detail">
+                                <h4>邮箱</h4>
+                                <p>2198441837@qq.com</p>
+                            </div>
+                        </div>
+                        <div class="contact-item">
+                            <div class="contact-icon">📱</div>
+                            <div class="contact-detail">
+                                <h4>电话</h4>
+                                <p>18475082891</p>
+                            </div>
+                        </div>
+                        <div class="contact-item">
+                            <div class="contact-icon">📍</div>
+                            <div class="contact-detail">
+                                <h4>地址</h4>
+                                <p>广东科学技术职业学院</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="site-footer">
+            <div class="footer-container">
+                <div class="footer-section">
+                    <h3>旅游景点推荐</h3>
+                    <p>发现中国之美，探索神州大地</p>
+                    <div class="social-links">
+                        <a href="#" class="social-link">微信</a>
+                        <a href="#" class="social-link">微博</a>
+                        <a href="#" class="social-link">抖音</a>
+                    </div>
+                </div>
+
+                <div class="footer-section">
+                    <h3>快速导航</h3>
+                    <ul class="footer-links">
+                        <li><a href="#" @click="showPage('home')">首页</a></li>
+                        <li><a href="#" @click="showPage('favorites')">我的收藏</a></li>
+                        <li><a href="#" @click="showPage('about')">关于我们</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h3>热门景点</h3>
+                    <ul class="footer-links">
+                        <li><a href="#" @click="showDestinationDetail(destinations[0])">故宫</a></li>
+                        <li><a href="#" @click="showDestinationDetail(destinations[1])">长城</a></li>
+                        <li><a href="#" @click="showDestinationDetail(destinations[2])">西湖</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h3>联系我们</h3>
+                    <div class="contact-info">
+                        <p>📧 2198441837@qq.com</p>
+                        <p>📱 18475082891</p>
+                        <p>📍 广东科学技术职业学院</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p>&copy; 2023 旅游景点推荐平台. 保留所有权利.</p>
+            </div>
+        </footer>
+
+        <!-- Detail Modal -->
+        <div v-if="selectedDestination" class="modal" @click.self="closeDetail">
+            <div class="modal-content">
+                <button class="modal-close" @click="closeDetail">&times;</button>
+                
+                <div class="detail-page">
+                    <div class="detail-header">
+                        <div>
+                            <img :src="selectedDestination.image" :alt="selectedDestination.name" class="detail-image">
+                        </div>
+                        <div class="detail-info">
+                            <h2>{{ selectedDestination.name }}</h2>
+                            <div class="detail-meta">
+                                <span class="tag">{{ selectedDestination.location }}</span>
+                                <span class="tag">{{ selectedDestination.type }}</span>
+                                <span class="tag">⭐ {{ selectedDestination.rating }}</span>
+                            </div>
+                            <p>{{ selectedDestination.shortDescription }}</p>
+                            <div style="margin-top: 1rem;">
+                                <button 
+                                    class="btn btn-primary" 
+                                    @click="toggleFavorite(selectedDestination)"
+                                >
+                                    {{ isFavorite(selectedDestination.id) ? '❤️ 已收藏' : '🤍 收藏景点' }}
+                                </button>
+                                <button class="btn btn-secondary" @click="shareDestination(selectedDestination)">
+                                    <span>🔗 分享景点</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-tabs">
+                        <div class="tab-buttons">
+                            <button 
+                                class="tab-button" 
+                                :class="{ active: activeTab === 'info' }"
+                                @click="activeTab = 'info'"
+                            >
+                                景点介绍
+                            </button>
+                            <button 
+                                class="tab-button" 
+                                :class="{ active: activeTab === 'routes' }"
+                                @click="activeTab = 'routes'"
+                            >
+                                推荐路线
+                            </button>
+                            <button 
+                                class="tab-button" 
+                                :class="{ active: activeTab === 'tips' }"
+                                @click="activeTab = 'tips'"
+                            >
+                                旅游贴士
+                            </button>
+                            <button
+                                class="tab-button"
+                                :class="{ active: activeTab === 'comments' }"
+                                @click="activeTab = 'comments'"
+                            >
+                                游客评价
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-content">
+                        <!-- 景点介绍 -->
+                        <div v-if="activeTab === 'info'">
+                            <div class="detail-description">
+                                <h3>详细介绍</h3>
+                                <p>{{ selectedDestination.fullDescription }}</p>
+                                
+                                <h3>主要景点</h3>
+                                <ul>
+                                    <li v-for="attraction in selectedDestination.attractions" :key="attraction">
+                                        {{ attraction }}
+                                    </li>
+                                </ul>
+                                
+                                <h3>最佳游览时间</h3>
+                                <p>{{ selectedDestination.bestTime }}</p>
+                            </div>
+                        </div>
+                        
+                        <!-- 推荐路线 -->
+                        <div v-if="activeTab === 'routes'">
+                            <h3>推荐旅游路线</h3>
+                            <div v-for="route in selectedDestination.routes" :key="route.name" class="route-item">
+                                <div class="route-title">{{ route.name }}</div>
+                                <div class="route-description">{{ route.description }}</div>
+                                <div style="margin-top: 0.5rem; color: #666;">
+                                    <strong>行程安排：</strong>{{ route.schedule }}
+                                </div>
+                                <div style="margin-top: 0.5rem; color: #666;">
+                                    <strong>预计费用：</strong>{{ route.cost }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 旅游贴士 -->
+                        <div v-if="activeTab === 'tips'">
+                            <h3>旅游贴士</h3>
+                            <div v-for="tip in selectedDestination.tips" :key="tip.title" style="margin-bottom: 1rem;">
+                                <h4>{{ tip.title }}</h4>
+                                <p>{{ tip.content }}</p>
+                            </div>
+                        </div>
+
+                        <!-- 游客评价 -->
+                        <div v-if="activeTab === 'comments'">
+                            <div class="comment-form">
+                                <h3>发表评价</h3>
+                                <div v-if="!isLoggedIn" class="login-prompt">
+                                    <p>请先<a href="#" @click="showLoginModal = true">登录</a>后发表评价</p>
+                                </div>
+                                <div v-else>
+                                    <div class="rating-input">
+                                        <label>评分：</label>
+                                        <div class="rating-stars">
+                                            <span 
+                                                v-for="star in 5" 
+                                                :key="star" 
+                                                class="star"
+                                                :class="{ active: star <= newComment.rating }"
+                                                @click="newComment.rating = star"
+                                            >
+                                                ⭐
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="comment-input">
+                                        <textarea 
+                                            v-model="newComment.content" 
+                                            placeholder="分享您的旅游体验..."
+                                            rows="4"
+                                        ></textarea>
+                                    </div>
+                                    <button class="btn btn-primary" @click="submitComment">提交评价</button>
+                                </div>
+                            </div>
+
+                            <div class="comments-list">
+                                <h3>游客评价 ({{ getDestinationComments(selectedDestination.id).length }})</h3>
+                                <div v-if="getDestinationComments(selectedDestination.id).length === 0" class="empty-comments">
+                                    <p>暂无评价，成为第一个评价者吧！</p>
+                                </div>
+                                <div v-else>
+                                    <div 
+                                        v-for="comment in getDestinationComments(selectedDestination.id)" 
+                                        :key="comment.id" 
+                                        class="comment-item"
+                                    >
+                                        <div class="comment-header">
+                                            <div class="comment-user">{{ comment.username }}</div>
+                                            <div class="comment-rating">
+                                                <span v-for="star in 5" :key="star" class="star" :class="{ active: star <= comment.rating }">⭐</span>
+                                            </div>
+                                            <div class="comment-date">{{ comment.date }}</div>
+                                        </div>
+                                        <div class="comment-content">{{ comment.content }}</div>
+                                        <div v-if="isLoggedIn && currentUser.username === comment.username" class="comment-actions">
+                                            <button class="btn btn-small btn-danger" @click="deleteComment(comment.id)">删除</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Modal -->
+        <div v-if="showLoginModal" class="modal" @click.self="showLoginModal = false">
+            <div class="modal-content">
+                <button class="modal-close" @click="showLoginModal = false">&times;</button>
+                
+                <div class="login-form">
+                    <h2>用户登录</h2>
+                    <form @submit.prevent="login">
+                        <div class="form-group">
+                            <label for="username">用户名</label>
+                            <input 
+                                type="text" 
+                                id="username" 
+                                v-model="loginForm.username" 
+                                required
+                                placeholder="请输入用户名"
+                            >
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="password">密码</label>
+                            <input 
+                                type="password" 
+                                id="password" 
+                                v-model="loginForm.password" 
+                                required
+                                placeholder="请输入密码"
+                            >
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                            登录
+                        </button>
+                    </form>
+                    
+                    <p style="margin-top: 1rem; text-align: center; color: #666; font-size: 0.9rem;">
+                        提示：输入任意用户名和密码即可登录
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Share Modal -->
+        <div v-if="showShareModal" class="modal" @click.self="closeShareModal">
+            <div class="modal-content share-modal">
+                <button class="modal-close" @click="closeShareModal">&times;</button>
+                <h3>分享景点</h3>
+                <div class="share-content">
+                    <p style="margin-bottom: 1.5rem;">将这个精彩的景点分享给您的朋友：</p>
+                    <div class="share-buttons">
+                        <button class="share-btn wechat" @click="shareToWeChat">
+                            <span class="share-icon">💬</span>
+                            <span>微信</span>
+                        </button>
+                        <button class="share-btn weibo" @click="shareToWeibo">
+                            <span class="share-icon">📝</span>
+                            <span>微博</span>
+                        </button>
+                        <button class="share-btn copy" @click="copyShareUrl">
+                            <span class="share-icon">🔗</span>
+                            <span>复制链接</span>
+                        </button>
+                    </div>
+                    <div class="share-url">
+                        <input type="text" :value="shareUrl" readonly>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
